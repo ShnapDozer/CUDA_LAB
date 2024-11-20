@@ -53,15 +53,14 @@ void verifyResults(const int *A, const int *B, const int *C, int N) {
     printf("Результаты верны!\n");
 }
 
-int main() {
-
+int main() 
+{
     printf("Размер векторов | Время выполнения\n");
 
     const int N = 1 << 25;
     size_t bytes = N * sizeof(int);
 
     printf("| %d | ", N);
-
 
     int *h_A = (int *)malloc(bytes);
     int *h_B = (int *)malloc(bytes);

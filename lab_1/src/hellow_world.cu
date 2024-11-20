@@ -76,13 +76,13 @@ int main(int argc, char *argv[])
    cudaMalloc ((void**)&dev, N * sizeof(float));
 
    dim3 threads(1024, 1, 1);
-   dim3 blocks(N /threads.x, 1);
+   dim3 blocks(N / threads.x, 1, 1);
 
    printf("Запуск на threads: %d, blocks: %d\n", threads.x, blocks.x);
 
    {
       CudaTimer t;
-      kernel<<<blocks, threads>>> (dev); 
+      kernel<<<blocks, threads>>>(dev); 
    }
 
    cudaMemcpy(a, dev, N * sizeof(float), cudaMemcpyDeviceToHost);

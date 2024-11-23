@@ -8,7 +8,7 @@
 #include "Common.h"
 
 #define BLOCK_SIZE 16
-#define RUN_COUNT 100
+#define RUN_COUNT 1000
 
 __global__ void transpose(const int* inData, int* outData, int n) 
 {
@@ -22,6 +22,24 @@ __global__ void transpose(const int* inData, int* outData, int n)
 
         outData[outIndex] = inData[inIndex];
     }
+}
+
+__global__ void transpose_shared(const int* inData, int* outData, int N) 
+{
+    __shared__ float tile[BLOCK_SIZE][BLOCK_SIZE];
+
+    int x = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    int y = blockIdx.y * BLOCK_SIZE + threadIdx.y;
+    
+    int width = gridDim.x * BLOCK_SIZE;
+    if (x < N && y < N) tile[threadIdx.y][threadIdx.x] = inData[y*width + x];
+    
+    __syncthreads();
+
+    x = blockIdx.y * BLOCK_SIZE + threadIdx.x;
+    y = blockIdx.x * BLOCK_SIZE + threadIdx.y;
+
+    if (x < N && y < N) outData[y*width + x] = tile[threadIdx.x][threadIdx.y];
 }
 
 void verifyTranspose(const std::vector<int>& input, const std::vector<int>& output, int n) 
@@ -41,6 +59,8 @@ void verifyTranspose(const std::vector<int>& input, const std::vector<int>& outp
 
 int main() 
 {
+    srand(time(0));
+
     const int   N       = 256;     
     size_t      bytes   = N * N * sizeof(int);
 
@@ -58,7 +78,6 @@ int main()
 
     for(int i = 0; i < RUN_COUNT; ++i) 
     {
-        srand(time(0));
         for (int i = 0; i < N * N; i++) h_inMatrix[i] = rand() % 1000 + 1;
         cudaMemcpy(d_inMatrix, h_inMatrix.data(), bytes, cudaMemcpyHostToDevice);
 
@@ -73,7 +92,27 @@ int main()
         verifyTranspose(h_inMatrix, h_outMatrix, N);
     }
 
-    printf("\nСреднее время выполнения Coalesced: %.5f мс\n", CudaTimer::avgElapsedTime);
+    printf("\nСреднее время выполнения non-shared: %.5f мс\n", CudaTimer::avgElapsedTime);
+
+    CudaTimer::avgElapsedTime = 0;
+
+    for(int i = 0; i < RUN_COUNT; ++i) 
+    {
+        for (int i = 0; i < N * N; i++) h_inMatrix[i] = rand() % 1000 + 1;
+        cudaMemcpy(d_inMatrix, h_inMatrix.data(), bytes, cudaMemcpyHostToDevice);
+
+        {
+            CudaTimer t(true);
+
+            transpose_shared<<<blocks, threads>>>(d_inMatrix, d_outMatrix, N);
+            cudaDeviceSynchronize();
+        }
+
+        cudaMemcpy(h_outMatrix.data(), d_outMatrix, bytes, cudaMemcpyDeviceToHost);
+        verifyTranspose(h_inMatrix, h_outMatrix, N);
+    }
+
+    printf("\nСреднее время выполнения shared: %.5f мс\n", CudaTimer::avgElapsedTime);
 
     cudaFree(d_inMatrix);
     cudaFree(d_outMatrix);

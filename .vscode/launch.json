@@ -5,7 +5,7 @@
             "name": "CUDA C++: Launch",
             "type": "cuda-gdb",
             "request": "launch",
-            "program": "${workspaceFolder}/vector_multiply"
+            "program": "${workspaceFolder}/lab_3/src/reduceMin.cu"
         },
         {
             "name": "CUDA C++: Attach",
